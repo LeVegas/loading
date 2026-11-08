@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Chargement</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #05070d; cursor: default; }
+body { font-family: Georgia, "Times New Roman", serif; color: #f1e3b5; -webkit-user-select: none; user-select: none; }
+#bg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+#vignette { position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  background: -webkit-radial-gradient(center, ellipse cover, rgba(0,0,0,0) 45%, rgba(0,0,0,0.78) 100%);
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.78) 100%); pointer-events: none; }
+
+#title { position: absolute; left: 0; width: 100%; top: 2.2%; text-align: center; }
+#title .name { font-size: 4.4vh; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; color: #ffe9a3;
+  text-shadow: 0 0 1.2vh rgba(255,170,40,0.55), 0 0.3vh 0 #000, 0 0 0.5vh #000; }
+#title .sub { font-size: 2vh; color: #c9b27a; margin-top: 0.4vh; letter-spacing: 0.25em; text-transform: uppercase; text-shadow: 0 0.2vh 0 #000; }
+#title .rule { margin: 1.1vh auto 0 auto; width: 36vh; height: 2px;
+  background: -webkit-linear-gradient(left, rgba(255,210,70,0), #ffd246, rgba(255,210,70,0));
+  background: linear-gradient(to right, rgba(255,210,70,0), #ffd246, rgba(255,210,70,0)); }
+
+#stage { position: absolute; border: 3px solid #4f3512; box-shadow: 0 0 0 2px #000, 0 0 0 5px #b8892f, 0 0 0 7px #000, 0 1.6vh 4vh rgba(0,0,0,0.8); background: #000; }
+#game { display: block; width: 100%; height: 100%; cursor: none; }
+.corner { position: absolute; width: 1.6vh; height: 1.6vh; background: #ffd246; border: 2px solid #000;
+  -webkit-transform: rotate(45deg); transform: rotate(45deg); }
+
+#tip { position: absolute; left: 0; width: 100%; text-align: center; font-size: 2.1vh; color: #e8d9a8; text-shadow: 0 0.2vh 0 #000, 0 0 1vh #000; }
+#tip b { color: #ffd246; }
+
+#barwrap { position: absolute; left: 50%; bottom: 6.2%; width: 62vh; margin-left: -31vh; height: 4.2vh; }
+#bar { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: #0b0805; border: 3px solid #4f3512;
+  box-shadow: 0 0 0 2px #000, 0 0 0 4px #b8892f, 0 0 0 6px #000; overflow: hidden; }
+#fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: -webkit-linear-gradient(top, #7fd4ff 0%, #2a8be0 45%, #14509a 55%, #1c6cc0 100%);
+  background: linear-gradient(to bottom, #7fd4ff 0%, #2a8be0 45%, #14509a 55%, #1c6cc0 100%); }
+#shine { position: absolute; top: 0; bottom: 0; width: 8vh; left: -10vh;
+  background: -webkit-linear-gradient(left, rgba(255,255,255,0), rgba(255,255,255,0.45), rgba(255,255,255,0));
+  background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,0.45), rgba(255,255,255,0)); }
+#pct { position: absolute; left: 0; right: 0; top: 0; bottom: 0; text-align: center; line-height: 4.2vh; font-size: 2.2vh; font-weight: bold; color: #fff;
+  text-shadow: 0 0 3px #000, 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000; }
+#status { position: absolute; left: 0; width: 100%; bottom: 2.6%; text-align: center; font-size: 1.8vh; color: #bba978; text-shadow: 0 0.2vh 0 #000; }
+#meta { position: absolute; right: 2vh; bottom: 2vh; text-align: right; font-size: 1.7vh; color: #9d8d62; text-shadow: 0 0.2vh 0 #000; }
+#hint { position: absolute; left: 2vh; bottom: 2vh; font-size: 1.7vh; color: #9d8d62; text-shadow: 0 0.2vh 0 #000; }
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="vignette"></div>
+
+<div id="title">
+  <div class="name" id="srvName">World of Warcraft RP</div>
+  <div class="sub" id="srvSub">Connexion en cours...</div>
+  <div class="rule"></div>
+</div>
+
+<div id="stage">
+  <canvas id="game" width="960" height="540"></canvas>
+  <div class="corner" style="left:-1.1vh; top:-1.1vh"></div>
+  <div class="corner" style="right:-1.1vh; top:-1.1vh"></div>
+  <div class="corner" style="left:-1.1vh; bottom:-1.1vh"></div>
+  <div class="corner" style="right:-1.1vh; bottom:-1.1vh"></div>
+</div>
+
+<div id="tip"></div>
+
+<div id="barwrap">
+  <div id="bar"><div id="fill"></div><div id="shine"></div><div id="pct">0 %</div></div>
+</div>
+<div id="status">Initialisation...</div>
+<div id="hint">Clique sur les murlocs pendant le chargement !</div>
+<div id="meta"></div>
+
+<script>
+/* ============================================================
+   CONFIGURATION  (modifie ici)
+   ============================================================ */
+var CONFIG = {
+  serverName: "",                       // vide = nom du serveur GMod. Ex: "World of Warcraft RP"
+  subtitle: "Connexion en cours...",
+  tips: [
+    "Appuie sur <b>F9</b> pour ouvrir ton livre de sorts et glisse tes sorts sur la barre.",
+    "<b>F8</b> : crée ta guilde, invite tes amis et discute dans le chat de guilde.",
+    "<b>M</b> ouvre la carte du monde, avec les PNJ de quêtes et ton objectif.",
+    "<b>L</b> ouvre ton journal de quêtes. Les PNJ marqués d'un <b>!</b> ont une quête pour toi.",
+    "Appuie sur <b>E</b> près d'un PNJ pour lui parler.",
+    "Tape <b>!hud</b> pour déplacer et agrandir ton interface.",
+    "<b>X</b> range ou sort ton arme. <b>W</b> verrouille la caméra sur une cible.",
+    "Maintiens le <b>clic droit</b> pour faire tourner la caméra autour de ton personnage.",
+    "<b>Échap</b> ouvre le menu de jeu avec toutes les touches du serveur."
+  ],
+  tipEverySeconds: 6,
+  musicUrl: ""                          // optionnel: lien direct vers un .mp3 / .ogg
+};
+
+/* ============================================================
+   OUTILS
+   ============================================================ */
+function $(id) { return document.getElementById(id); }
+var raf = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame ||
+          function (f) { return window.setTimeout(function () { f(new Date().getTime()); }, 16); };
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function store(k, v) { try { if (v === undefined) { return window.localStorage.getItem(k); } window.localStorage.setItem(k, v); } catch (e) {} return null; }
+
+/* ============================================================
+   MISE EN PAGE
+   ============================================================ */
+var stage = $("stage"), game = $("game"), bg = $("bg");
+function layout() {
+  var W = window.innerWidth, H = window.innerHeight;
+  bg.width = W; bg.height = H;
+  var top = H * 0.155, bottom = H * 0.215;
+  var availH = H - top - bottom, availW = W * 0.9;
+  var h = Math.min(availH, availW * 9 / 16), w = h * 16 / 9;
+  stage.style.width = Math.round(w) + "px"; stage.style.height = Math.round(h) + "px";
+  stage.style.left = Math.round((W - w) / 2) + "px"; stage.style.top = Math.round(top + (availH - h) / 2) + "px";
+  var tip = $("tip"); tip.style.top = Math.round(top + (availH - h) / 2 + h + H * 0.025) + "px";
+  drawBackground();
+}
+
+/* fond: ciel etoile + montagnes */
+var stars = [];
+function drawBackground() {
+  var c = bg.getContext("2d"), W = bg.width, H = bg.height;
+  var g = c.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#04060f"); g.addColorStop(0.55, "#0d1a33"); g.addColorStop(1, "#2a1a14");
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  if (!stars.length) { for (var i = 0; i < 160; i++) { stars.push({ x: Math.random(), y: Math.random() * 0.6, r: rnd(0.4, 1.6), p: Math.random() * 6 }); } }
+  for (var s = 0; s < stars.length; s++) { var st = stars[s]; c.fillStyle = "rgba(255,255,240," + (0.35 + 0.4 * Math.abs(Math.sin(st.p))) + ")"; c.beginPath(); c.arc(st.x * W, st.y * H, st.r, 0, 6.3); c.fill(); }
+  // lune
+  var mg = c.createRadialGradient(W * 0.82, H * 0.2, 2, W * 0.82, H * 0.2, H * 0.16);
+  mg.addColorStop(0, "rgba(255,248,220,0.95)"); mg.addColorStop(0.18, "rgba(255,240,200,0.85)"); mg.addColorStop(0.19, "rgba(255,230,170,0.16)"); mg.addColorStop(1, "rgba(255,230,170,0)");
+  c.fillStyle = mg; c.beginPath(); c.arc(W * 0.82, H * 0.2, H * 0.16, 0, 6.3); c.fill();
+  // montagnes
+  function ridge(base, amp, col, seed) {
+    c.fillStyle = col; c.beginPath(); c.moveTo(0, H);
+    for (var x = 0; x <= W; x += W / 60) { var y = base - amp * (0.55 * Math.sin(x / W * 5 + seed) + 0.3 * Math.sin(x / W * 13 + seed * 2) + 0.15 * Math.sin(x / W * 31 + seed * 3)); c.lineTo(x, y); }
+    c.lineTo(W, H); c.closePath(); c.fill();
+  }
+  ridge(H * 0.62, H * 0.12, "#101a2e", 1.2); ridge(H * 0.72, H * 0.09, "#0b1220", 3.4); ridge(H * 0.82, H * 0.06, "#080c16", 5.1);
+}
+
+/* ============================================================
+   CHARGEMENT (API GMod)
+   ============================================================ */
+var load = { total: 0, needed: 0, pct: 0, shown: 0, gmod: false, status: "", start: new Date().getTime() };
+
+function setStatusText(t) { $("status").innerHTML = t; }
+
+// --- fonctions appelees par Garry's Mod ---
+function GameDetails(servername, serverurl, mapname, maxplayers, steamid, gamemode) {
+  load.gmod = true;
+  $("srvName").innerHTML = CONFIG.serverName ? CONFIG.serverName : (servername || "World of Warcraft RP");
+  $("srvSub").innerHTML = CONFIG.subtitle;
+  $("meta").innerHTML = "Carte : " + mapname + "<br>Joueurs : " + maxplayers + " max";
+}
+function SetFilesTotal(total) { load.gmod = true; load.total = parseInt(total, 10) || 0; updateFromFiles(); }
+function SetFilesNeeded(needed) { load.gmod = true; load.needed = parseInt(needed, 10) || 0; updateFromFiles(); }
+function DownloadingFile(name) {
+  load.gmod = true;
+  var n = String(name || ""); if (n.length > 64) { n = "..." + n.substring(n.length - 61); }
+  setStatusText("Téléchargement : " + n);
+}
+function SetStatusChanged(status) {
+  load.gmod = true; load.status = String(status || "");
+  var s = load.status.toLowerCase();
+  var fr = load.status;
+  if (s.indexOf("workshop") >= 0) fr = "Récupération des contenus Workshop...";
+  else if (s.indexOf("sending client info") >= 0) fr = "Envoi des informations au serveur...";
+  else if (s.indexOf("client info") >= 0) fr = "Informations client...";
+  else if (s.indexOf("lua") >= 0) fr = "Démarrage de Lua...";
+  else if (s.indexOf("map") >= 0) fr = "Chargement de la carte...";
+  else if (s.indexOf("signon") >= 0 || s.indexOf("connect") >= 0) fr = "Connexion au serveur...";
+  setStatusText(fr);
+  // etapes sans fichiers: fait avancer la barre
+  var bump = 0;
+  if (s.indexOf("sending client info") >= 0) bump = 60;
+  else if (s.indexOf("lua") >= 0) bump = 70;
+  else if (s.indexOf("map") >= 0 || s.indexOf("signon") >= 0 || s.indexOf("client info") >= 0) bump = 85;
+  if (s.indexOf("complete") >= 0 || s.indexOf("spawn") >= 0) bump = 98;
+  if (bump > load.floor) load.floor = bump;
+}
+load.floor = 0;
+
+function updateFromFiles() {
+  if (load.total > 0) {
+    var done = (load.total - load.needed) / load.total;
+    var p = done * 55; // les fichiers = 55% de la barre, le reste = etapes de connexion
+    if (p > load.pct) load.pct = p;
+    setStatusText("Fichiers : " + (load.total - load.needed) + " / " + load.total);
+  }
+}
+
+/* animation de la barre */
+var shineX = -10;
+function tickBar() {
+  var target = Math.max(load.pct, load.floor);
+  // hors GMod (apercu navigateur): simulation
+  if (!load.gmod && new Date().getTime() - load.start > 2500) {
+    var t = (new Date().getTime() - load.start - 2500) / 22000;
+    target = Math.min(99, t * 100);
+    if (t < 0.5) setStatusText("Téléchargement des fichiers... (aperçu)");
+    else if (t < 0.8) setStatusText("Démarrage de Lua... (aperçu)");
+    else setStatusText("Chargement de la carte... (aperçu)");
+    $("srvName").innerHTML = CONFIG.serverName || "World of Warcraft RP";
+    $("srvSub").innerHTML = CONFIG.subtitle;
+  }
+  // progression lente garantie (pour ne jamais paraitre fige)
+  if (target < 97) { load.slow = Math.max(load.slow || 0, Math.min(target + 3, (load.slow || 0) + 0.01)); }
+  load.shown += (target - load.shown) * 0.06;
+  var p = clamp(load.shown, 0, 100);
+  $("fill").style.width = p + "%";
+  $("pct").innerHTML = Math.floor(p) + " %";
+  shineX += 0.35; if (shineX > 110) shineX = -15;
+  $("shine").style.left = (shineX * 0.01 * $("bar").offsetWidth - 40) + "px";
+  raf(tickBar);
+}
+
+/* astuces */
+var tipIdx = 0;
+function showTip() {
+  var t = $("tip");
+  t.style.opacity = 0;
+  window.setTimeout(function () {
+    t.innerHTML = "<b>Astuce :</b> " + CONFIG.tips[tipIdx % CONFIG.tips.length];
+    tipIdx++;
+    t.style.opacity = 1;
+  }, 350);
+}
+$("tip").style.transition = "opacity 0.35s"; $("tip").style.webkitTransition = "opacity 0.35s";
+
+/* ============================================================
+   MINI-JEU : CHASSE AUX MURLOCS
+   ============================================================ */
+var ctx = game.getContext("2d");
+var GW = 960, GH = 540;
+var holes = [];
+(function () {
+  var cols = 3, rows = 3;
+  for (var r = 0; r < rows; r++) { for (var c = 0; c < cols; c++) {
+    holes.push({ x: 210 + c * 270 + (r % 2) * 25, y: 285 + r * 85, busy: false, c: c, r: r });
+  } }
+})();
+
+var G = { score: 0, lives: 3, level: 1, combo: 0, best: 0, over: false, spawnT: 0, mobs: [], fx: [], texts: [], mouse: { x: 480, y: 270 }, swing: 0, shake: 0, t: 0, hits: 0 };
+G.best = parseInt(store("wowload_best") || "0", 10) || 0;
+
+var bgGame = document.createElement("canvas"); bgGame.width = GW; bgGame.height = GH;
+(function buildGameBg() {
+  var c = bgGame.getContext("2d");
+  var g = c.createLinearGradient(0, 0, 0, GH);
+  g.addColorStop(0, "#1a2a55"); g.addColorStop(0.38, "#6a4a7c"); g.addColorStop(0.5, "#d98a5a"); g.addColorStop(0.505, "#1b3b4d"); g.addColorStop(1, "#0b1a24");
+  c.fillStyle = g; c.fillRect(0, 0, GW, GH);
+  // lune
+  var mg = c.createRadialGradient(780, 90, 4, 780, 90, 90);
+  mg.addColorStop(0, "rgba(255,250,225,1)"); mg.addColorStop(0.25, "rgba(255,240,200,0.9)"); mg.addColorStop(0.26, "rgba(255,230,180,0.15)"); mg.addColorStop(1, "rgba(255,230,180,0)");
+  c.fillStyle = mg; c.beginPath(); c.arc(780, 90, 90, 0, 6.3); c.fill();
+  // montagnes lointaines
+  function ridge(base, amp, col, seed) {
+    c.fillStyle = col; c.beginPath(); c.moveTo(0, 270);
+    for (var x = 0; x <= GW; x += 16) { var y = base - amp * (0.55 * Math.sin(x / GW * 5 + seed) + 0.3 * Math.sin(x / GW * 13 + seed * 2) + 0.15 * Math.sin(x / GW * 29 + seed * 3)); c.lineTo(x, y); }
+    c.lineTo(GW, 270); c.closePath(); c.fill();
+  }
+  ridge(215, 70, "#2a2447", 1.1); ridge(245, 50, "#1b1a33", 3.3);
+  // arbres silhouette
+  c.fillStyle = "#0d1020";
+  for (var i = 0; i < 26; i++) { var tx = i * 38 + (i % 3) * 7, th = 40 + (i * 37 % 40); c.beginPath(); c.moveTo(tx, 268); c.lineTo(tx + 14, 268 - th); c.lineTo(tx + 28, 268); c.fill(); }
+  // eau : reflets
+  for (var k = 0; k < 90; k++) { c.fillStyle = "rgba(180,220,255," + rnd(0.03, 0.1) + ")"; c.fillRect(rnd(0, GW), rnd(272, GH), rnd(20, 90), 1.5); }
+  // rive
+  var sg = c.createLinearGradient(0, 262, 0, 285); sg.addColorStop(0, "#2a1c10"); sg.addColorStop(1, "rgba(30,20,10,0)");
+  c.fillStyle = sg; c.fillRect(0, 262, GW, 24);
+  // trous / nenuphars
+  for (var h = 0; h < holes.length; h++) {
+    var hole = holes[h];
+    c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse ? c.ellipse(hole.x, hole.y + 4, 74, 22, 0, 0, 6.3) : c.arc(hole.x, hole.y + 4, 60, 0, 6.3); c.fill();
+  }
+})();
+
+function ellipsePath(c, x, y, rx, ry) {
+  c.save(); c.translate(x, y); c.scale(rx, ry); c.beginPath(); c.arc(0, 0, 1, 0, 6.2832); c.restore();
+}
+
+/* --- dessin des creatures (formes originales) --- */
+function drawMurloc(c, x, y, s, kind, t) {
+  c.save(); c.translate(x, y); c.scale(s, s);
+  var body = "#3c9a6a", dark = "#1f5c3e", belly = "#a6e0a0", fin = "#e0563c";
+  if (kind === "gold") { body = "#e8b830"; dark = "#8a6410"; belly = "#fff0a0"; fin = "#ff8a2a"; }
+  // nageoires laterales
+  c.fillStyle = dark; c.beginPath(); c.moveTo(-46, -34); c.lineTo(-74, -50); c.lineTo(-60, -18); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(46, -34); c.lineTo(74, -50); c.lineTo(60, -18); c.closePath(); c.fill();
+  // corps
+  c.fillStyle = body; ellipsePath(c, 0, -34, 52, 60); c.fill();
+  c.fillStyle = belly; ellipsePath(c, 0, -14, 32, 34); c.fill();
+  // crete
+  c.fillStyle = fin; c.beginPath(); c.moveTo(-20, -86); c.lineTo(-10, -118); c.lineTo(0, -90); c.lineTo(10, -124); c.lineTo(20, -88); c.lineTo(30, -110); c.lineTo(34, -78); c.closePath(); c.fill();
+  c.strokeStyle = dark; c.lineWidth = 3; c.stroke();
+  // yeux
+  var bl = (Math.sin(t * 5) > 0.97);
+  c.fillStyle = "#fff6b0"; ellipsePath(c, -26, -62, 17, bl ? 3 : 19); c.fill(); ellipsePath(c, 26, -62, 17, bl ? 3 : 19); c.fill();
+  c.lineWidth = 2.5; c.strokeStyle = "#000"; ellipsePath(c, -26, -62, 17, bl ? 3 : 19); c.stroke(); ellipsePath(c, 26, -62, 17, bl ? 3 : 19); c.stroke();
+  if (!bl) { c.fillStyle = "#101010"; ellipsePath(c, -23, -60, 6, 9); c.fill(); ellipsePath(c, 29, -60, 6, 9); c.fill(); }
+  // bouche
+  c.fillStyle = "#4a0f10"; c.beginPath(); c.moveTo(-26, -26); c.quadraticCurveTo(0, 4, 26, -26); c.quadraticCurveTo(0, -42, -26, -26); c.fill();
+  c.strokeStyle = "#000"; c.lineWidth = 2.5; c.stroke();
+  c.fillStyle = "#fff"; for (var i = -2; i <= 2; i++) { c.beginPath(); c.moveTo(i * 9 - 3, -32 + Math.abs(i)); c.lineTo(i * 9, -24 + Math.abs(i) * 0.5); c.lineTo(i * 9 + 3, -32 + Math.abs(i)); c.fill(); }
+  // narines
+  c.fillStyle = dark; ellipsePath(c, -6, -42, 2.5, 3.5); c.fill(); ellipsePath(c, 6, -42, 2.5, 3.5); c.fill();
+  c.restore();
+}
+
+function drawGuard(c, x, y, s) {
+  c.save(); c.translate(x, y); c.scale(s, s);
+  // epaules
+  c.fillStyle = "#2c5fa8"; ellipsePath(c, 0, -6, 58, 34); c.fill(); c.strokeStyle = "#0a1a3a"; c.lineWidth = 3; c.stroke();
+  c.fillStyle = "#e8c8a0"; ellipsePath(c, 0, -52, 36, 40); c.fill(); c.strokeStyle = "#5a3a20"; c.lineWidth = 2.5; c.stroke();
+  // casque
+  c.fillStyle = "#9aa6b6"; c.beginPath(); c.moveTo(-42, -56); c.quadraticCurveTo(-40, -112, 0, -114); c.quadraticCurveTo(40, -112, 42, -56); c.lineTo(30, -60); c.lineTo(-30, -60); c.closePath(); c.fill();
+  c.strokeStyle = "#1a2230"; c.lineWidth = 3; c.stroke();
+  c.fillStyle = "#e0b83a"; c.fillRect(-4, -112, 8, 50);
+  c.fillStyle = "#2c5fa8"; c.beginPath(); c.moveTo(-8, -112); c.quadraticCurveTo(0, -140, 22, -128); c.quadraticCurveTo(6, -124, 8, -112); c.fill();
+  // visage
+  c.fillStyle = "#101010"; ellipsePath(c, -14, -50, 4, 5); c.fill(); ellipsePath(c, 14, -50, 4, 5); c.fill();
+  c.fillStyle = "#6a4a2a"; c.beginPath(); c.moveTo(-18, -36); c.quadraticCurveTo(0, -28, 18, -36); c.quadraticCurveTo(0, -42, -18, -36); c.fill();
+  c.strokeStyle = "#a02020"; c.lineWidth = 4; c.beginPath(); c.moveTo(-10, -22); c.lineTo(10, -22); c.stroke();
+  // petite banniere "ne pas taper"
+  c.restore();
+}
+
+/* --- logique --- */
+function levelSpeed() { return Math.max(0.55, 1.35 - G.level * 0.08); }
+
+function spawn() {
+  var free = []; for (var i = 0; i < holes.length; i++) { if (!holes[i].busy) free.push(holes[i]); }
+  if (!free.length) return;
+  var h = free[Math.floor(Math.random() * free.length)];
+  var r = Math.random(), kind = "murloc";
+  if (r < 0.14) kind = "guard"; else if (r < 0.20) kind = "gold";
+  h.busy = true;
+  G.mobs.push({ h: h, kind: kind, t: 0, life: (kind === "gold" ? 0.8 : 1.2) * levelSpeed() + 0.35, dead: false, squash: 0, scale: 1 });
+}
+
+function addText(x, y, txt, col) { G.texts.push({ x: x, y: y, txt: txt, col: col, t: 0 }); }
+function splash(x, y, col, n) { for (var i = 0; i < n; i++) { G.fx.push({ x: x, y: y, vx: rnd(-160, 160), vy: rnd(-260, -60), t: 0, life: rnd(0.4, 0.9), col: col, r: rnd(2, 5) }); } }
+
+function mobOffset(m) { // 0 (sous l'eau) -> 1 (sorti)
+  var p = m.t / m.life;
+  if (p < 0.2) return p / 0.2;
+  if (p > 0.8) return (1 - p) / 0.2;
+  return 1;
+}
+
+function hitTest(px, py) {
+  for (var i = G.mobs.length - 1; i >= 0; i--) {
+    var m = G.mobs[i]; if (m.dead) continue;
+    var off = mobOffset(m); if (off < 0.35) continue;
+    var cx = m.h.x, cy = m.h.y - 50 * off;
+    var dx = px - cx, dy = py - cy;
+    if (dx * dx / (62 * 62) + dy * dy / (78 * 78) <= 1) return m;
+  }
+  return null;
+}
+
+function click(px, py) {
+  if (G.over) { if (G.overT > 0.6) { resetGame(); } return; }
+  G.swing = 1;
+  var m = hitTest(px, py);
+  if (!m) { G.combo = 0; return; }
+  m.dead = true; m.squash = 0.001;
+  var x = m.h.x, y = m.h.y - 60;
+  if (m.kind === "guard") {
+    G.lives--; G.combo = 0; G.shake = 0.4;
+    addText(x, y, "Un allié !", "#ff6a5a"); splash(x, y + 20, "#ff6a5a", 14);
+    if (G.lives <= 0) { gameOver(); }
+  } else {
+    G.combo++; var mult = 1 + Math.floor(G.combo / 5) * 0.5;
+    var pts = Math.round((m.kind === "gold" ? 50 : 10) * mult);
+    G.score += pts; G.hits++;
+    addText(x, y, "+" + pts + (m.kind === "gold" ? " !" : ""), m.kind === "gold" ? "#ffe060" : "#ffffff");
+    splash(x, y + 30, m.kind === "gold" ? "#ffd24a" : "#9ff0ff", m.kind === "gold" ? 22 : 12);
+    var nl = 1 + Math.floor(G.score / 150); if (nl > G.level) { G.level = nl; addText(480, 120, "Niveau " + G.level + " !", "#ffd246"); }
+  }
+}
+
+function gameOver() {
+  G.over = true; G.overT = 0;
+  if (G.score > G.best) { G.best = G.score; store("wowload_best", String(G.best)); G.newBest = true; } else { G.newBest = false; }
+}
+function resetGame() {
+  G.score = 0; G.lives = 3; G.level = 1; G.combo = 0; G.over = false; G.mobs = []; G.fx = []; G.texts = []; G.hits = 0;
+  for (var i = 0; i < holes.length; i++) holes[i].busy = false;
+}
+
+function update(dt) {
+  G.t += dt;
+  if (G.over) { G.overT += dt; }
+  if (!G.over) {
+    G.spawnT -= dt;
+    if (G.spawnT <= 0) { spawn(); G.spawnT = rnd(0.35, 0.85) * levelSpeed(); }
+    for (var i = G.mobs.length - 1; i >= 0; i--) {
+      var m = G.mobs[i];
+      if (m.dead) { m.squash += dt * 4; if (m.squash >= 1) { m.h.busy = false; G.mobs.splice(i, 1); } continue; }
+      m.t += dt;
+      if (m.t >= m.life) { m.h.busy = false; G.mobs.splice(i, 1); if (m.kind === "murloc") { G.combo = 0; } }
+    }
+  } else {
+    for (var j = G.mobs.length - 1; j >= 0; j--) { var mm = G.mobs[j]; mm.t += dt; if (mm.t >= mm.life) { mm.h.busy = false; G.mobs.splice(j, 1); } }
+  }
+  for (var f = G.fx.length - 1; f >= 0; f--) { var p = G.fx[f]; p.t += dt; p.vy += 520 * dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.t > p.life) G.fx.splice(f, 1); }
+  for (var k = G.texts.length - 1; k >= 0; k--) { var tx = G.texts[k]; tx.t += dt; tx.y -= 40 * dt; if (tx.t > 1) G.texts.splice(k, 1); }
+  if (G.swing > 0) G.swing = Math.max(0, G.swing - dt * 5);
+  if (G.shake > 0) G.shake = Math.max(0, G.shake - dt);
+}
+
+function text(c, s, x, y, size, col, align, stroke) {
+  c.font = "bold " + size + "px Georgia, serif"; c.textAlign = align || "left"; c.textBaseline = "middle";
+  c.lineWidth = Math.max(3, size / 6); c.strokeStyle = stroke || "#000"; c.lineJoin = "round"; c.strokeText(s, x, y);
+  c.fillStyle = col; c.fillText(s, x, y);
+}
+
+function drawHeart(c, x, y, s, on) {
+  c.save(); c.translate(x, y); c.scale(s, s);
+  c.fillStyle = on ? "#e8283a" : "#33141a"; c.strokeStyle = "#000"; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(0, 8); c.bezierCurveTo(-16, -4, -12, -16, 0, -8); c.bezierCurveTo(12, -16, 16, -4, 0, 8); c.fill(); c.stroke();
+  c.restore();
+}
+
+function render() {
+  var c = ctx;
+  c.save();
+  if (G.shake > 0) { c.translate(rnd(-4, 4) * G.shake * 2, rnd(-4, 4) * G.shake * 2); }
+  c.drawImage(bgGame, 0, 0);
+
+  // ondulations animees
+  for (var h = 0; h < holes.length; h++) {
+    var hole = holes[h];
+    var ph = G.t * 1.6 + h;
+    c.strokeStyle = "rgba(190,230,255,0.22)"; c.lineWidth = 2;
+    ellipsePath(c, hole.x, hole.y + 4, 66 + Math.sin(ph) * 4, 18 + Math.sin(ph) * 1.2); c.stroke();
+    ellipsePath(c, hole.x, hole.y + 4, 48 + Math.sin(ph + 1) * 3, 12); c.stroke();
+  }
+
+  // creatures (de l'arriere vers l'avant)
+  var order = G.mobs.slice().sort(function (a, b) { return a.h.y - b.h.y; });
+  for (var i = 0; i < order.length; i++) {
+    var m = order[i], off = mobOffset(m);
+    var x = m.h.x, y = m.h.y;
+    c.save();
+    c.beginPath(); c.rect(x - 130, y - 220, 260, 220 + 0); c.clip(); // coupe sous la surface de l'eau
+    var sq = m.dead ? (1 - m.squash) : 1;
+    var yy = y + 90 - 140 * off * 0.78 + (m.dead ? m.squash * 70 : 0);
+    var sc = 0.85 * sq;
+    if (m.kind === "guard") drawGuard(c, x, yy, sc); else drawMurloc(c, x, yy, sc, m.kind, G.t + i);
+    if (m.kind === "gold" && !m.dead) { c.fillStyle = "rgba(255,230,120," + (0.25 + 0.2 * Math.sin(G.t * 12)) + ")"; ellipsePath(c, x, yy - 60 * sc, 70 * sc, 80 * sc); c.fill(); }
+    c.restore();
+    // eclaboussure avant
+    c.strokeStyle = "rgba(220,240,255,0.5)"; c.lineWidth = 3;
+    ellipsePath(c, x, y + 6, 62, 14); c.stroke();
+  }
+
+  // particules
+  for (var f = 0; f < G.fx.length; f++) { var p = G.fx[f]; c.globalAlpha = clamp(1 - p.t / p.life, 0, 1); c.fillStyle = p.col; c.beginPath(); c.arc(p.x, p.y, p.r, 0, 6.3); c.fill(); }
+  c.globalAlpha = 1;
+  for (var k = 0; k < G.texts.length; k++) { var tx = G.texts[k]; c.globalAlpha = clamp(1 - tx.t, 0, 1); text(c, tx.txt, tx.x, tx.y, 30, tx.col, "center"); }
+  c.globalAlpha = 1;
+
+  // HUD
+  c.fillStyle = "rgba(10,7,4,0.62)"; c.fillRect(0, 0, GW, 52);
+  c.fillStyle = "#b8892f"; c.fillRect(0, 52, GW, 2);
+  text(c, "Score  " + G.score, 22, 27, 26, "#ffe9a3");
+  text(c, "Niveau " + G.level, 330, 27, 22, "#c9d8ff");
+  if (G.combo >= 3) text(c, "Combo x" + G.combo, 480, 27, 22, "#ffb060", "center");
+  text(c, "Record " + G.best, 690, 27, 20, "#d8c68a", "center");
+  for (var l = 0; l < 3; l++) drawHeart(c, 850 + l * 34, 28, 1.25, l < G.lives);
+  text(c, "Ne frappe pas les gardes alliés !", 480, 516, 18, "#ffe9a3", "center");
+
+  // fin de partie
+  if (G.over) {
+    c.fillStyle = "rgba(0,0,0,0.62)"; c.fillRect(0, 0, GW, GH);
+    text(c, "Fin de la partie", 480, 190, 52, "#ffd246", "center");
+    text(c, "Score : " + G.score, 480, 262, 34, "#ffffff", "center");
+    if (G.newBest) text(c, "Nouveau record !", 480, 306, 26, "#9ff0a0", "center");
+    text(c, "Clique pour rejouer", 480, 370, 26, "#e8d9a8", "center");
+  }
+  c.restore();
+
+  // marteau (curseur)
+  var mx = G.mouse.x, my = G.mouse.y, sw = G.swing;
+  c.save(); c.translate(mx, my); c.rotate(-0.9 + sw * 1.1);
+  c.fillStyle = "#6a4420"; c.fillRect(-4, -4, 9, 62); c.strokeStyle = "#000"; c.lineWidth = 2; c.strokeRect(-4, -4, 9, 62);
+  c.fillStyle = "#8a909c"; c.fillRect(-26, -34, 56, 34); c.strokeRect(-26, -34, 56, 34);
+  c.fillStyle = "#b8c0cc"; c.fillRect(-26, -34, 56, 9);
+  c.restore();
+}
+
+/* boucle */
+var last = new Date().getTime();
+function loop() {
+  var now = new Date().getTime();
+  var dt = Math.min(0.05, (now - last) / 1000); last = now;
+  update(dt); render();
+  raf(loop);
+}
+
+function toGame(e) {
+  var r = game.getBoundingClientRect();
+  var x = ((e.clientX - r.left) / r.width) * GW, y = ((e.clientY - r.top) / r.height) * GH;
+  return { x: x, y: y };
+}
+game.addEventListener("mousemove", function (e) { var p = toGame(e); G.mouse.x = p.x; G.mouse.y = p.y; }, false);
+game.addEventListener("mousedown", function (e) { var p = toGame(e); G.mouse.x = p.x; G.mouse.y = p.y; click(p.x, p.y); if (e.preventDefault) e.preventDefault(); }, false);
+game.addEventListener("contextmenu", function (e) { if (e.preventDefault) e.preventDefault(); }, false);
+
+/* ============================================================
+   DEMARRAGE
+   ============================================================ */
+window.addEventListener("resize", layout, false);
+layout();
+$("srvName").innerHTML = CONFIG.serverName || "World of Warcraft RP";
+$("srvSub").innerHTML = CONFIG.subtitle;
+showTip();
+window.setInterval(showTip, CONFIG.tipEverySeconds * 1000);
+if (CONFIG.musicUrl) { try { var a = new Audio(CONFIG.musicUrl); a.loop = true; a.volume = 0.5; a.play(); } catch (e) {} }
+tickBar();
+loop();
+</script>
+</body>
+</html>
