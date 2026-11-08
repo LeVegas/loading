@@ -8,10 +8,6 @@
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #05070d; cursor: default; }
 body { font-family: Georgia, "Times New Roman", serif; color: #f1e3b5; -webkit-user-select: none; user-select: none; }
 #bg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
-#vignette { position: absolute; left: 0; top: 0; width: 100%; height: 100%;
-  background: -webkit-radial-gradient(center, ellipse cover, rgba(0,0,0,0) 45%, rgba(0,0,0,0.78) 100%);
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.78) 100%); pointer-events: none; }
-
 #title { position: absolute; left: 0; width: 100%; top: 2.2%; text-align: center; }
 #title .name { font-size: 4.4vh; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; color: #ffe9a3;
   text-shadow: 0 0 1.2vh rgba(255,170,40,0.55), 0 0.3vh 0 #000, 0 0 0.5vh #000; }
@@ -20,7 +16,7 @@ body { font-family: Georgia, "Times New Roman", serif; color: #f1e3b5; -webkit-u
   background: -webkit-linear-gradient(left, rgba(255,210,70,0), #ffd246, rgba(255,210,70,0));
   background: linear-gradient(to right, rgba(255,210,70,0), #ffd246, rgba(255,210,70,0)); }
 
-#stage { position: absolute; border: 3px solid #4f3512; box-shadow: 0 0 0 2px #000, 0 0 0 5px #b8892f, 0 0 0 7px #000, 0 1.6vh 4vh rgba(0,0,0,0.8); background: #000; }
+#stage { position: absolute; border: 3px solid #4f3512; box-shadow: 0 0 0 2px #000, 0 0 0 5px #b8892f, 0 0 0 7px #000; background: #000; }
 #game { display: block; width: 100%; height: 100%; cursor: none; }
 .corner { position: absolute; width: 1.6vh; height: 1.6vh; background: #ffd246; border: 2px solid #000;
   -webkit-transform: rotate(45deg); transform: rotate(45deg); }
@@ -34,7 +30,7 @@ body { font-family: Georgia, "Times New Roman", serif; color: #f1e3b5; -webkit-u
 #fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
   background: -webkit-linear-gradient(top, #7fd4ff 0%, #2a8be0 45%, #14509a 55%, #1c6cc0 100%);
   background: linear-gradient(to bottom, #7fd4ff 0%, #2a8be0 45%, #14509a 55%, #1c6cc0 100%); }
-#shine { position: absolute; top: 0; bottom: 0; width: 8vh; left: -10vh;
+#shine { position: absolute; top: 0; bottom: 0; width: 8vh; left: 0;
   background: -webkit-linear-gradient(left, rgba(255,255,255,0), rgba(255,255,255,0.45), rgba(255,255,255,0));
   background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,0.45), rgba(255,255,255,0)); }
 #pct { position: absolute; left: 0; right: 0; top: 0; bottom: 0; text-align: center; line-height: 4.2vh; font-size: 2.2vh; font-weight: bold; color: #fff;
@@ -46,7 +42,6 @@ body { font-family: Georgia, "Times New Roman", serif; color: #f1e3b5; -webkit-u
 </head>
 <body>
 <canvas id="bg"></canvas>
-<div id="vignette"></div>
 
 <div id="title">
   <div class="name" id="srvName">World of Warcraft RP</div>
@@ -113,6 +108,7 @@ function layout() {
   var top = H * 0.155, bottom = H * 0.215;
   var availH = H - top - bottom, availW = W * 0.9;
   var h = Math.min(availH, availW * 9 / 16), w = h * 16 / 9;
+  measureBar();
   stage.style.width = Math.round(w) + "px"; stage.style.height = Math.round(h) + "px";
   stage.style.left = Math.round((W - w) / 2) + "px"; stage.style.top = Math.round(top + (availH - h) / 2) + "px";
   var tip = $("tip"); tip.style.top = Math.round(top + (availH - h) / 2 + h + H * 0.025) + "px";
@@ -139,6 +135,9 @@ function drawBackground() {
     c.lineTo(W, H); c.closePath(); c.fill();
   }
   ridge(H * 0.62, H * 0.12, "#101a2e", 1.2); ridge(H * 0.72, H * 0.09, "#0b1220", 3.4); ridge(H * 0.82, H * 0.06, "#080c16", 5.1);
+  var vg = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.78)");
+  c.fillStyle = vg; c.fillRect(0, 0, W, H);
 }
 
 /* ============================================================
@@ -146,7 +145,8 @@ function drawBackground() {
    ============================================================ */
 var load = { total: 0, needed: 0, pct: 0, shown: 0, gmod: false, status: "", start: new Date().getTime() };
 
-function setStatusText(t) { $("status").innerHTML = t; }
+var lastStatus = "";
+function setStatusText(t) { if (t !== lastStatus) { lastStatus = t; $("status").innerHTML = t; } }
 
 // --- fonctions appelees par Garry's Mod ---
 function GameDetails(servername, serverurl, mapname, maxplayers, steamid, gamemode) {
@@ -192,30 +192,35 @@ function updateFromFiles() {
   }
 }
 
-/* animation de la barre */
-var shineX = -10;
+/* animation de la barre (peu d'ecritures dans la page: seulement quand la valeur change) */
+var shineX = -10, lastW = -1, lastPct = -1, lastShineT = 0, previewInit = false;
 function tickBar() {
+  var now = new Date().getTime();
   var target = Math.max(load.pct, load.floor);
   // hors GMod (apercu navigateur): simulation
-  if (!load.gmod && new Date().getTime() - load.start > 2500) {
-    var t = (new Date().getTime() - load.start - 2500) / 22000;
+  if (!load.gmod && now - load.start > 2500) {
+    var t = (now - load.start - 2500) / 22000;
     target = Math.min(99, t * 100);
     if (t < 0.5) setStatusText("Téléchargement des fichiers... (aperçu)");
     else if (t < 0.8) setStatusText("Démarrage de Lua... (aperçu)");
     else setStatusText("Chargement de la carte... (aperçu)");
-    $("srvName").innerHTML = CONFIG.serverName || "World of Warcraft RP";
-    $("srvSub").innerHTML = CONFIG.subtitle;
   }
-  // progression lente garantie (pour ne jamais paraitre fige)
-  if (target < 97) { load.slow = Math.max(load.slow || 0, Math.min(target + 3, (load.slow || 0) + 0.01)); }
   load.shown += (target - load.shown) * 0.06;
   var p = clamp(load.shown, 0, 100);
-  $("fill").style.width = p + "%";
-  $("pct").innerHTML = Math.floor(p) + " %";
-  shineX += 0.35; if (shineX > 110) shineX = -15;
-  $("shine").style.left = (shineX * 0.01 * $("bar").offsetWidth - 40) + "px";
-  raf(tickBar);
+  var pw = Math.round(p * 2) / 2;
+  if (pw !== lastW) { lastW = pw; $("fill").style.width = pw + "%"; }
+  var pi = Math.floor(p);
+  if (pi !== lastPct) { lastPct = pi; $("pct").innerHTML = pi + " %"; }
+  if (now - lastShineT > 70) {
+    lastShineT = now;
+    shineX += 2.2; if (shineX > 110) shineX = -15;
+    var tr = "translateX(" + Math.round(shineX * 0.01 * barW - 40) + "px)";
+    $("shine").style.webkitTransform = tr; $("shine").style.transform = tr;
+  }
+  window.setTimeout(tickBar, 50);
 }
+var barW = 600;
+function measureBar() { barW = $("bar").offsetWidth || 600; }
 
 /* astuces */
 var tipIdx = 0;
@@ -328,6 +333,17 @@ function drawGuard(c, x, y, s) {
   c.restore();
 }
 
+/* --- sprites pre-dessines (rapide) --- */
+function makeSprite(fn) {
+  var cv = document.createElement("canvas"); cv.width = 200; cv.height = 190;
+  fn(cv.getContext("2d")); return cv;
+}
+var SPR = {
+  murloc: makeSprite(function (c) { drawMurloc(c, 100, 150, 1, "murloc", 0); }),
+  gold:   makeSprite(function (c) { drawMurloc(c, 100, 150, 1, "gold", 0); }),
+  guard:  makeSprite(function (c) { drawGuard(c, 100, 150, 1); })
+};
+
 /* --- logique --- */
 function levelSpeed() { return Math.max(0.55, 1.35 - G.level * 0.08); }
 
@@ -426,6 +442,7 @@ function drawHeart(c, x, y, s, on) {
   c.restore();
 }
 
+var hudCv = document.createElement("canvas"); hudCv.width = GW; hudCv.height = GH; var hudKey = "";
 function render() {
   var c = ctx;
   c.save();
@@ -451,7 +468,7 @@ function render() {
     var sq = m.dead ? (1 - m.squash) : 1;
     var yy = y + 90 - 140 * off * 0.78 + (m.dead ? m.squash * 70 : 0);
     var sc = 0.85 * sq;
-    if (m.kind === "guard") drawGuard(c, x, yy, sc); else drawMurloc(c, x, yy, sc, m.kind, G.t + i);
+    var spr = SPR[m.kind]; c.drawImage(spr, x - 100 * sc, yy - 150 * sc, 200 * sc, 190 * sc);
     if (m.kind === "gold" && !m.dead) { c.fillStyle = "rgba(255,230,120," + (0.25 + 0.2 * Math.sin(G.t * 12)) + ")"; ellipsePath(c, x, yy - 60 * sc, 70 * sc, 80 * sc); c.fill(); }
     c.restore();
     // eclaboussure avant
@@ -465,15 +482,22 @@ function render() {
   for (var k = 0; k < G.texts.length; k++) { var tx = G.texts[k]; c.globalAlpha = clamp(1 - tx.t, 0, 1); text(c, tx.txt, tx.x, tx.y, 30, tx.col, "center"); }
   c.globalAlpha = 1;
 
-  // HUD
-  c.fillStyle = "rgba(10,7,4,0.62)"; c.fillRect(0, 0, GW, 52);
-  c.fillStyle = "#b8892f"; c.fillRect(0, 52, GW, 2);
-  text(c, "Score  " + G.score, 22, 27, 26, "#ffe9a3");
-  text(c, "Niveau " + G.level, 330, 27, 22, "#c9d8ff");
-  if (G.combo >= 3) text(c, "Combo x" + G.combo, 480, 27, 22, "#ffb060", "center");
-  text(c, "Record " + G.best, 690, 27, 20, "#d8c68a", "center");
-  for (var l = 0; l < 3; l++) drawHeart(c, 850 + l * 34, 28, 1.25, l < G.lives);
-  text(c, "Ne frappe pas les gardes alliés !", 480, 516, 18, "#ffe9a3", "center");
+  // HUD (redessine seulement quand une valeur change)
+  var key = G.score + "|" + G.level + "|" + G.combo + "|" + G.best + "|" + G.lives;
+  if (key !== hudKey) {
+    hudKey = key;
+    var h2 = hudCv.getContext("2d");
+    h2.clearRect(0, 0, GW, GH);
+    h2.fillStyle = "rgba(10,7,4,0.62)"; h2.fillRect(0, 0, GW, 52);
+    h2.fillStyle = "#b8892f"; h2.fillRect(0, 52, GW, 2);
+    text(h2, "Score  " + G.score, 22, 27, 26, "#ffe9a3");
+    text(h2, "Niveau " + G.level, 330, 27, 22, "#c9d8ff");
+    if (G.combo >= 3) text(h2, "Combo x" + G.combo, 480, 27, 22, "#ffb060", "center");
+    text(h2, "Record " + G.best, 690, 27, 20, "#d8c68a", "center");
+    for (var l = 0; l < 3; l++) drawHeart(h2, 850 + l * 34, 28, 1.25, l < G.lives);
+    text(h2, "Ne frappe pas les gardes alliés !", 480, 516, 18, "#ffe9a3", "center");
+  }
+  c.drawImage(hudCv, 0, 0);
 
   // fin de partie
   if (G.over) {
@@ -494,12 +518,15 @@ function render() {
   c.restore();
 }
 
-/* boucle */
+/* boucle: 30 images/s max, le temps ecoule pendant un blocage de GMod n'est pas rattrape */
 var last = new Date().getTime();
 function loop() {
   var now = new Date().getTime();
-  var dt = Math.min(0.05, (now - last) / 1000); last = now;
-  update(dt); render();
+  var el = now - last;
+  if (el >= 30) {
+    var dt = Math.min(0.05, el / 1000); last = now;
+    update(dt); render();
+  }
   raf(loop);
 }
 
